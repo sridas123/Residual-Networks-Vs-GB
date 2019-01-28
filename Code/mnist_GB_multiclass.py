@@ -3,6 +3,8 @@ import time
 import numpy as np
 import math
 #import sys
+"""Import the MNIST data set"""
+from keras.datasets import mnist
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Dropout
@@ -30,9 +32,6 @@ if K.backend()=='tensorflow':
 import tensorflow as tf
 import multiprocessing as mp
 
-""" Loading the CIFAR-10 datasets"""
-from keras.datasets import cifar10
-
 """ Declare variables"""
 
 batch_size = 128
@@ -41,74 +40,23 @@ subset_test=10000
 """ 32 examples in a mini-batch, smaller batch size means more updates in one epoch"""
 
 num_classes = 10 #
-epochs = 100 # repeat 100 times
-no_of_boosting_iter=15
-
-def base_model():
-
-    model = Sequential()
-    model.add(Conv2D(32, (3, 3), padding='same', input_shape=x_train.shape[1:]))
-    model.add(Activation('relu'))
-    model.add(Conv2D(32, (3, 3)))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-    model.add(Flatten())
-    model.add(Dense(num_classes))
-    model.add(Activation('softmax'))
-
-    #sgd = SGD(lr = 0.1, decay=1e-6, momentum=0.9, nesterov=True)
-    optimizer = tf.train.RMSPropOptimizer(0.001)
-
-    """ Train model"""
-
-    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['mean_squared_error'])
-    return model
+epochs = 50 # repeat 100 times
+no_of_boosting_iter=10
 
 def base_model_reg():
 
     model = Sequential()
-    model.add(Conv2D(32, (3, 3), padding='same', kernel_regularizer=l2(1.e-4), input_shape=x_train.shape[1:]))
+    model.add(Dense(512,input_shape=(784,)))
     model.add(Activation('relu'))
-    #model.add(Conv2D(32, (3, 3)))
-    #model.add(Activation('relu'))
-    #model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-    model.add(Flatten())	
+    model.add(Dropout(0.2))
     model.add(Dense(num_classes))
     model.add(Activation('linear'))
 
-    #sgd = SGD(lr = 0.1, decay=1e-6, momentum=0.9, nesterov=True)
     optimizer = tf.train.RMSPropOptimizer(0.001)
     """ Train model"""
 
     model.compile(loss='mean_squared_error', optimizer=optimizer,metrics=['mean_squared_error'])
-    #model.compile(optimizer=Adam(1e-04),loss='mean_squared_error',metrics=['accuracy'])
     return model
-
-def base_model_reg1():
-
-   model = Sequential()
-   #model.add(Conv2D(64, (7, 7), strides=(2,2), padding='same',kernel_initializer='he_normal', kernel_regularizer=l2(1.e-4), input_shape=x_train.shape[1:]))
-   model.add(Conv2D(32, (3, 3), padding='same', activation='relu',kernel_initializer='he_normal', kernel_regularizer=l2(1.e-4), input_shape=x_train.shape[1:]))
-   model.add(Conv2D(32,(3, 3), activation='relu'))
-   model.add(MaxPooling2D())
-   model.add(Dropout(0.25))
-   model.add(Conv2D(64, (3, 3), padding='same', activation='relu'))
-   model.add(MaxPooling2D())
-   model.add(Dropout(0.25))
-   model.add(Flatten())    
-   model.add(Dense(num_classes))
-   model.add(Activation('linear'))
-   
-   #sgd = SGD(lr = 0.1, decay=1e-6, momentum=0.9, nesterov=True)
-   optimizer = tf.train.RMSPropOptimizer(0.001)
-   """ Train model"""
-
-   model.compile(loss='mean_squared_error', optimizer=optimizer,metrics=['mean_squared_error'])
-   #model.compile(optimizer=Adam(1e-04),loss='mean_squared_error',metrics=['accuracy'])
-   return model
-
 
 """Calculate the residuals (I-P) for each training example"""
 def calculate_residuals_cls(y_train):
@@ -192,14 +140,17 @@ if __name__ == '__main__':
   #sys.stdout = open('analysis.txt', 'w')
   GB_training_model=[]
   """get the training and test sets for CIFAR-10"""
-  (x_train_full, y_train_full), (x_test, y_test) = cifar10.load_data()
+  (x_train_full, y_train_full), (x_test, y_test) = mnist.load_data()
 
   """Convert and pre-processing"""
 
   y_train_full = np_utils.to_categorical(y_train_full, num_classes)
-  y_test = np_utils.to_categorical(y_test, num_classes)
+  y_test =       np_utils.to_categorical(y_test, num_classes)
+  x_train_full = x_train_full.reshape(60000, 784)
+  x_test = x_test.reshape(10000, 784)
   x_train_full = x_train_full.astype('float32')
-  x_test = x_test.astype('float32')
+  x_test =       x_test.astype('float32')
+  """Normalize the features"""
   x_train_full  /= 255
   x_test /= 255
   
@@ -223,7 +174,7 @@ if __name__ == '__main__':
   """Build the CNN model architecture with 1 convolutional and 1 fully connected network for regression"""
   for steps in range(0,no_of_boosting_iter):
     
-     cnn_n_reg = base_model_reg1()
+     cnn_n_reg = base_model_reg()
      """gives out the summary of the models"""
      #cnn_n_reg.summary()
 
