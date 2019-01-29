@@ -35,18 +35,20 @@ import multiprocessing as mp
 """ Declare variables"""
 
 batch_size = 128
-subset_train= 50000
-subset_test=10000
+#subset_train= 50000
+#subset_test=10000
 """ 32 examples in a mini-batch, smaller batch size means more updates in one epoch"""
 
 num_classes = 10 #
-epochs = 20 # repeat 100 times
-no_of_boosting_iter=1
+#epochs_tot = 20 # repeat 100 times
+epochs=30
+no_of_boosting_iter=5
+datapath="/home/sxd170431/Resnet_Project/usps/"
 
 def base_model_reg():
 
     model = Sequential()
-    model.add(Dense(512,input_shape=(784,)))
+    model.add(Dense(1024,input_shape=(256,)))
     model.add(Activation('relu'))
     model.add(Dropout(0.2))
     model.add(Dense(num_classes))
@@ -133,23 +135,43 @@ def calculate_old_predictions(training_model,xtrain,curr_step):
     #y_pred_reg=np.zeros((xtrain.shape[0],num_classes))
     learner=training_model[curr_step-1]
     y_pred_reg=learner.predict(xtrain, verbose=0)
-    return y_pred_reg    
+    return y_pred_reg 
+
+def calculate_all_old_predictions(training_model,xtrain,curr_step):
+
+    pred_sum_reg = np.zeros((xtrain.shape[0],num_classes))
+    for i in range(0,len(training_model)):
+        y_pred_reg=training_model[i].predict(xtrain, verbose=0)
+        pred_sum_reg=np.add(pred_sum_reg, y_pred_reg)
+
+    return pred_sum_reg   
     
 if __name__ == '__main__':
-   
-  #sys.stdout = open('analysis.txt', 'w')
+  
   GB_training_model=[]
-  """get the training and test sets for CIFAR-10"""
-  (x_train_full, y_train_full), (x_test, y_test) = mnist.load_data()
+
+  """Load the usps data set"""
+  with open(datapath+'usps_train.jf') as f:
+        data = f.readlines()
+  data = data[1:-1]
+  data = [list(map(float, line.split())) for line in data]
+  data = np.array(data)
+  x_train_full, y_train_full = data[:, 1:], data[:, 0]
+
+  with open(datapath+'usps_test.jf') as f:
+       data = f.readlines()
+  data = data[1:-1]
+  data = [list(map(float, line.split())) for line in data]
+  data = np.array(data)
+  x_test, y_test = data[:, 1:], data[:, 0] 
 
   """Convert and pre-processing"""
-
   y_train_full = np_utils.to_categorical(y_train_full, num_classes)
   y_test =       np_utils.to_categorical(y_test, num_classes)
-  x_train_full = x_train_full.reshape(60000, 784)
-  x_test = x_test.reshape(10000, 784)
+ 
   x_train_full = x_train_full.astype('float32')
   x_test =       x_test.astype('float32')
+
   """Normalize the features"""
   x_train_full  /= 255
   x_test /= 255
@@ -179,15 +201,19 @@ if __name__ == '__main__':
      #cnn_n_reg.summary()
 
      """Fit the Regression model"""
+     #if (steps==0):
+     #    epochs=1
+ 
      cnn = cnn_n_reg.fit(x_train, error, batch_size=batch_size, epochs=epochs ,shuffle=True)
-    
+     
+     #epochs=epochs_tot
      """Predictions from the current regressor"""
      y_predict_reg_curr=cnn_n_reg.predict(x_train, verbose=0)
     
      print "The predictions from regressor", y_predict_reg_curr[0:5]
      """Predictions from previous regressors"""
      if (steps > 0):
-        y_predict_prev_models=calculate_old_predictions(GB_training_model,x_train,steps)
+        y_predict_prev_models=calculate_all_old_predictions(GB_training_model,x_train,steps)
         """Combine the previous previous and the current prediction"""
         #y_predict_reg= np.true_divide(np.add(y_predict_reg_curr,y_predict_prev_models),2)
         y_predict_reg= np.add(y_predict_reg_curr,y_predict_prev_models)
